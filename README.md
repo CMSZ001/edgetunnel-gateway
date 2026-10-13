@@ -17,8 +17,12 @@
   - **端口 `8789` (Web UI & REST API)**：现代化暗色/亮色管理控制台，全域可视化运维。
 - 🔄 **握手期透明无感故障转移 (Transparent Failover Retry)**
   - 采用**首包 128KB 动态数据暂存技术**，在握手期遇到 Cloudflare 边缘阻断错误（`1101`、`502`、`429`、`403`、`521`）或网络中断时，网关自动在后台静默重试备用健康节点，对客户端完全透明无感知，杜绝连接闪断。
-  - **HTTP/2 会话长连接复用池 (H2 Session Pool)**：按 `Host#SNI` 智能维持出站 H2 活跃连接并定时空闲回收，大幅降低握手往返延迟。
-- 🎯 **优选 IP 动态透传、全域感知与实时物理测速**
+  - 🚀 **HTTP/2 弹性多连接池 (Elastic Multi-Session Pool)**：每个目标后端按需维持最多 **4 条独立 H2 并发连接**。当单连接并发流数超过阈值（>15 Streams）时自动弹性开辟新连接分流，彻底杜绝高并发多线程大流量下载时的 **TCP 队头阻塞**，闲置超时自动优雅缩容。
+- 🎯 **EWMA 延迟感知平滑加权轮询调度 (Latency-Aware Smooth Weighted Routing)**
+  - 基于端到端握手耗时实时追踪各后端的**指数加权移动平均（EWMA）**延迟；
+  - 采用 Nginx 同款平滑加权轮询算法（Smooth Weighted Round-Robin），将更多流量智能倾斜给低延迟优质后端；
+  - 节点发生异常时自动阶梯惩罚权重，同时保证所有健康节点享有保底轮询权重，杜绝节点饿死。
+- 🌐 **优选 IP 动态透传、全域感知与实时物理测速**
   - 配合 Sub-Store 脚本自动在请求路径中携带 `prefer=优选IP:端口`；
   - 网关在握手时自动解析并直连该最优优选 IP，同时清洗请求路径，保证远端 Cloudflare 收到的 Path 纯净合法；
   - **活跃优选节点感知**：网关自动收集客户端使用的所有优选 IP/域名，实时展示物理 RTT 往返延迟、请求频次与来源设备，支持一键批量测速、单节点测试与一键设为全局默认。
@@ -34,8 +38,9 @@
   - 仅对 1101 致命异常与子账户额度超限推送告警，配备 **15 分钟防刷节流机制**，避免通知轰炸。
 - 🖥️ **现代化模块化 Web 控制台**
   - 选项卡导航栏具备**零位移吸顶常驻（Sticky Header）**特性，无论页面滚动多深，切换卡片纹丝不动；
+  - 监控中心卡片**实时呈现各后端节点的 EWMA 动态延迟**（如 ⚡ 186ms），节点健康度一目了然；
   - 单节点启停滑动开关（Switch Toggle）、页面级二次确认防误触弹窗；
-  - 实时 SSE (Server-Sent Events) 日志流，支持等级筛选与自动滚屏；
+  - 实时 SSE (Server-Sent Events) 日志流，支持等级筛选、关键词搜索与自动滚屏；
   - 核心配置热重载，并自带历史快照备份与一键回滚机制。
 
 ---
@@ -61,10 +66,10 @@ graph TD
         IsolatedH2 --> Extract
         IsolatedH1 --> Extract
         
-        Extract --> BufferCheck["首包 128KB 缓冲<br/>+ H2 会话复用池"]
+        Extract --> BufferCheck["首包 128KB 缓冲<br/>+ H2 弹性多连接池"]
         BufferCheck --> HealthCheck{"健康检测 & 熔断器"}
         HealthCheck -->|阻断/中断| Failover["透明故障转移重试 (最多2次)<br/>无感切换备用后端"]
-        HealthCheck -->|正常| LB["后端池轮询出站"]
+        HealthCheck -->|正常| LB["EWMA 延迟感知<br/>平滑加权轮询出站"]
     end
 
     LB -->|"直连优选IP + 真实SNI/Host + TLS"| CF_Pages["Cloudflare Pages 后端池<br/>(pages-*.example.com)"]
@@ -86,13 +91,13 @@ edgetunnel-gateway/
 │   ├── config.mjs              # 配置加载、持久化、历史备份与回滚
 │   ├── auth.mjs                # 管理员密码加盐哈希与 Bearer Token 会话管理
 │   ├── telegram.mjs            # Telegram 消息推送、SOCKS5 代理与自检
-│   ├── health.mjs              # 动态熔断隔离 (5次容错)、健康恢复与统计
+│   ├── health.mjs              # 动态熔断隔离、EWMA 延迟感知平滑加权轮询调度与健康恢复
 │   ├── prefer.mjs              # 活跃优选节点感知、TCP 延迟测速与清理
 │   ├── traffic.mjs             # 流量历史采样与文件持久化
 │   ├── cf-quota.mjs            # Cloudflare 直连API轮询与 5 分钟静默巡检
 │   ├── utils.mjs               # 公共工具函数 (安全URL处理、良性错误过滤等)
 │   ├── proxy-ws.mjs            # WebSocket (8787) Pages 核心转发代理
-│   └── proxy-xhttp.mjs         # XHTTP (8788) Worker 双模网关与透明故障转移
+│   └── proxy-xhttp.mjs         # XHTTP (8788) Worker 双模网关、H2 弹性多连接池与透明故障转移
 ├── public/                     # 原生前端静态资源
 │   ├── index.html              # 纯骨架 DOM 结构 (吸顶导航栏、各选项卡容器)
 │   ├── css/
