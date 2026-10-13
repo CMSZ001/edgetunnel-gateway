@@ -1,9 +1,9 @@
 version: '3.8'
 
 services:
-  local-gateway:
+  gateway:
     image: node:20-alpine
-    container_name: local-edgetunnel-lb
+    container_name: edgetunnel-gateway
     restart: unless-stopped
     volumes:
       # 挂载项目目录（包含 server.mjs、public 静态文件和动态生成的 config.json）
