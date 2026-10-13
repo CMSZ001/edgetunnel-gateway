@@ -618,7 +618,7 @@
         const totalReq = bStat ? (bStat.total || 0) : 0;
         const successRate = bStat ? (bStat.successRate !== undefined ? bStat.successRate : (totalReq > 0 ? (bStat.success / totalReq * 100).toFixed(1) : 100)) : 100;
         const statsBadgeHtml = '<span style="font-size: 0.72rem; color: var(--text-muted); background: rgba(255,255,255,0.04); border: 1px solid var(--card-border); padding: 0.1rem 0.45rem; border-radius: 4px; font-family: monospace;">' +
-          '📊 转发: ' + totalReq.toLocaleString() + ' 次 (' + successRate + '%)' +
+          '📊 转发: ' + totalReq.toLocaleString() + ' 次 · 成功率 ' + successRate + '%' +
         '</span>';
 
         let quotaHtml = '';
