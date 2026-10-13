@@ -115,7 +115,11 @@
         const parsed = JSON.parse(raw);
         let pwd = '';
         if (parsed.password) {
-          try { pwd = atob(parsed.password); } catch { pwd = parsed.password; }
+          try {
+            pwd = decodeURIComponent(escape(atob(parsed.password)));
+          } catch {
+            try { pwd = atob(parsed.password); } catch { pwd = parsed.password; }
+          }
         }
         return { username: parsed.username || 'admin', password: pwd };
       } catch {
@@ -126,11 +130,19 @@
     function saveCredentials(username, password, remember) {
       if (remember) {
         try {
+          const encodedPwd = btoa(unescape(encodeURIComponent(password)));
           localStorage.setItem('edgetunnel_saved_creds', JSON.stringify({
             username,
-            password: btoa(password)
+            password: encodedPwd
           }));
-        } catch {}
+        } catch {
+          try {
+            localStorage.setItem('edgetunnel_saved_creds', JSON.stringify({
+              username,
+              password
+            }));
+          } catch {}
+        }
       } else {
         localStorage.removeItem('edgetunnel_saved_creds');
       }
@@ -2180,27 +2192,48 @@ function renderSubAccountsCards(accounts) {
         const data = await res.json();
         if (data.needSetup) {
           showAuthModal(true);
-        } else {
-          const token = localStorage.getItem('edgetunnel_token');
-          if (!token) {
-            // 未登录：不弹出弹窗！直接进入监控中心大盘
-            applyAuthState(false);
+          return;
+        }
+
+        const token = localStorage.getItem('edgetunnel_token');
+        if (token) {
+          const checkRes = await fetch('/api/auth/status', {
+            headers: { 'Authorization': 'Bearer ' + token }
+          });
+          const checkData = await checkRes.json();
+          if (checkData.authenticated) {
+            applyAuthState(true);
             startApp();
-          } else {
-            const checkRes = await fetch('/api/auth/status', {
-              headers: { 'Authorization': 'Bearer ' + token }
+            return;
+          }
+          localStorage.removeItem('edgetunnel_token');
+        }
+
+        // 若当前未处于登录态，但本地保存了凭据，全自动尝试静默登录！
+        const savedCreds = getSavedCredentials();
+        if (savedCreds && savedCreds.username && savedCreds.password) {
+          try {
+            const loginRes = await fetch('/api/auth/login', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ username: savedCreds.username, password: savedCreds.password })
             });
-            const checkData = await checkRes.json();
-            if (checkData.authenticated) {
+            const loginData = await loginRes.json();
+            if (loginData.ok && loginData.token) {
+              localStorage.setItem('edgetunnel_token', loginData.token);
               applyAuthState(true);
+              hideAuthModal(loginData.username);
               startApp();
-            } else {
-              localStorage.removeItem('edgetunnel_token');
-              applyAuthState(false);
-              startApp();
+              return;
             }
+          } catch (e) {
+            console.warn('[Auto-Login] 静默登录异常:', e.message);
           }
         }
+
+        // 未记住凭据或自动登录失败：平滑进入只读监控大盘
+        applyAuthState(false);
+        startApp();
       } catch (e) {
         applyAuthState(false);
         startApp();
