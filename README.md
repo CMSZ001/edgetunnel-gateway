@@ -1,11 +1,11 @@
-# EdgeTunnel Gateway (edgetunnel-gateway)
+# local-edgetunnel-lb 本地自适应动态分流网关
 
 [![Docker](https://img.shields.io/badge/Docker-Node%2020--Alpine-2496ED?logo=docker&logoColor=white)](https://hub.docker.com/_/node)
 [![License](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/Platform-Synology%20NAS%20%7C%20Linux-green.svg)]()
 [![Architecture](https://img.shields.io/badge/Architecture-Modular%20ESM-orange.svg)]()
 
-专为 **Cloudflare Pages / Workers (EdgeTunnel)** 打造的轻量级高性能局域网自适应负载均衡与智能分流网关。通过 Docker 部署在 NAS / 软路由 / 物理服务器上，赋予独立局域网 IP（Macvlan 模式），为内网全设备（软路由 Mihomo、PC v2rayN、手机等）提供高可用、多域名轮询、握手期透明故障转移、动态优选 IP 透传与多账户额度监控管理服务。
+专为 **Cloudflare Pages / Workers ([EdgeTunnel](https://github.com/cmliu/edgetunnel))** 打造的轻量级高性能局域网自适应负载均衡与智能分流网关。通过 Docker 部署在 NAS / 软路由 / 物理服务器上，赋予独立局域网 IP（Macvlan 模式），为内网全设备（软路由 Mihomo、PC v2rayN、手机等）提供高可用、多域名轮询、握手期透明故障转移、动态优选 IP 透传与多账户额度监控管理服务。
 
 ---
 
@@ -23,7 +23,7 @@
   - 网关在握手时自动解析并直连该最优优选 IP，同时清洗请求路径，保证远端 Cloudflare 收到的 Path 纯净合法；
   - **活跃优选节点感知**：网关自动收集客户端使用的所有优选 IP/域名，实时展示物理 RTT 往返延迟、请求频次与来源设备，支持一键批量测速、单节点测试与一键设为全局默认。
 - ☁️ **Cloudflare 多账户额度监控与后台静默联动**
-  - **双模式支持**：原生支持 **Cloudflare 官方 API 直连模式 (Direct)** 与 **UsagePanel 镜像模式**；
+  - **双模式支持**：原生支持 **Cloudflare 官方 API 直连模式 (Direct)** 与 **[UsagePanel](https://github.com/cmliu/CF-Workers-UsagePanel) 镜像模式**；
   - **每 5 分钟自动静默巡检**：后台定时向 Cloudflare 官方 API 拉取各子账户当日 Workers / Pages / KV / D1 / R2 实时用量；
   - **监控中心毫秒级全自动联动**：监控中心卡片与 CF 额度深度打通，额度变动即时驱动卡片进度条更新，无需手动刷新页面。
 - 🛡️ **智能健康检查与自动容错熔断**
@@ -250,6 +250,15 @@ proxies:
 > **答**：**默认阈值为 95%**。当某个后端关联绑定的 Cloudflare 子账户当日请求额度使用率达到或超过该阈值时，网关在动态调度轮询时会**自动暂停调度该节点（移出健康池）**，优先将流量引流至其他未超限的子账户后端；若全部节点均超过该阈值，网关会自动降级兜底保留所有节点，防止断网。
 > 
 > 现在可以在 Web 控制台的 **【⚙️ 核心配置】** 选项卡中自由调整该设置项（**Cloudflare 额度自动避让阈值**，支持 10% ~ 100%，步长 1%），修改后即时热生效并自动持久化。
+
+---
+
+## 🙏 鸣谢与相关项目 (Acknowledgements)
+
+本项目在设计与实现过程中，参考并深度联动了以下优秀的开源项目，特此鸣谢：
+
+- **[cmliu/edgetunnel](https://github.com/cmliu/edgetunnel)**：基于 Cloudflare Workers / Pages 的高性能边缘网络隧道服务，为本项目提供出站后端协议生态与核心支持。
+- **[cmliu/CF-Workers-UsagePanel](https://github.com/cmliu/CF-Workers-UsagePanel)**：极具创意的 Cloudflare 多账户额度监控与统计面板，为本项目的子账户额度巡检、反代镜像联动与配额自动避让机制提供了关键灵感与支持。
 
 ---
 

@@ -734,10 +734,14 @@ const webServer = http.createServer(async (req, res) => {
       try { res.write(': keepalive\n\n'); } catch {}
     }, 15000);
 
-    req.on('close', () => {
+    const cleanup = () => {
       logEmitter.removeListener('log', onLog);
       clearInterval(keepAlive);
-    });
+    };
+    req.on('close', cleanup);
+    res.on('close', cleanup);
+    res.on('finish', cleanup);
+    res.on('error', cleanup);
     return;
   }
 

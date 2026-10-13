@@ -86,6 +86,11 @@
       if (tabId === 'cfusage') {
         loadCfAccounts();
       }
+      if (tabId === 'logs') {
+        if (!eventSourceInstance || eventSourceInstance.readyState === EventSource.CLOSED) {
+          initLogStream();
+        }
+      }
     }
 
     async function authFetch(url, options = {}) {
@@ -2000,6 +2005,49 @@ function renderSubAccountsCards(accounts) {
       }
     }
 
+    function appendLogItem(log, term) {
+      if (!log || typeof log.message !== 'string') return;
+      const line = document.createElement('div');
+      line.className = 'log-line';
+      line.setAttribute('data-level', log.level || 'info');
+      let colorClass = 'log-info';
+      if (log.level === 'error') colorClass = 'log-error';
+      if (log.level === 'warn') colorClass = 'log-warn';
+
+      const cleanMsg = log.message.replace(/\x1b\[[0-9;]*m/g, '');
+      const timeStr = log.time || new Date().toLocaleTimeString('zh-CN', { timeZone: 'Asia/Shanghai', hour12: false });
+      line.innerHTML = '<span class="log-time">[' + escapeHtml(timeStr) + ']</span><span class="' + colorClass + '">' + escapeHtml(cleanMsg) + '</span>';
+
+      // 实时匹配当前关键词与级别过滤
+      const query = (document.getElementById('log-search-filter')?.value || '').toLowerCase().trim();
+      const lineText = (timeStr + ' ' + cleanMsg).toLowerCase();
+      let matchesLevel = true;
+      if (currentLogLevelFilter === 'error') {
+        matchesLevel = (log.level === 'error' || lineText.includes('429') || lineText.includes('1101') || lineText.includes('502') || lineText.includes('fail'));
+      } else if (currentLogLevelFilter === 'warn') {
+        matchesLevel = (log.level === 'warn' || log.level === 'error');
+      }
+      if (!(matchesLevel && (!query || lineText.includes(query)))) {
+        line.style.display = 'none';
+      }
+
+      term.appendChild(line);
+
+      // 保持最多 600 条以保护 DOM 性能
+      if (term.childNodes.length > 600) {
+        term.removeChild(term.firstChild);
+      }
+
+      const countBadge = document.getElementById('log-count-badge');
+      if (countBadge && (!query && currentLogLevelFilter === 'all')) {
+        countBadge.innerText = term.childNodes.length + ' 条日志';
+      }
+
+      if (!isPausedLog && line.style.display !== 'none') {
+        term.scrollTop = term.scrollHeight;
+      }
+    }
+
     function initLogStream() {
       if (eventSourceInstance) {
         try { eventSourceInstance.close(); } catch {}
@@ -2008,60 +2056,52 @@ function renderSubAccountsCards(accounts) {
       const sseUrl = '/api/logs/stream' + (token ? '?token=' + encodeURIComponent(token) : '');
       const term = document.getElementById('terminal');
       if (!term) return;
+
       const es = new EventSource(sseUrl);
       eventSourceInstance = es;
+
       es.onmessage = (e) => {
         try {
-          const log = JSON.parse(e.data);
-          const line = document.createElement('div');
-          line.className = 'log-line';
-          line.setAttribute('data-level', log.level || 'info');
-          let colorClass = 'log-info';
-          if (log.level === 'error') colorClass = 'log-error';
-          if (log.level === 'warn') colorClass = 'log-warn';
+          if (!e.data) return;
+          const data = JSON.parse(e.data);
 
-          const cleanMsg = log.message.replace(/\x1b\[[0-9;]*m/g, '');
-          line.innerHTML = '<span class="log-time">[' + log.time + ']</span><span class="' + colorClass + '">' + escapeHtml(cleanMsg) + '</span>';
-          
-          // 实时匹配当前关键词与级别过滤
-          const query = (document.getElementById('log-search-filter')?.value || '').toLowerCase().trim();
-          const lineText = (log.time + ' ' + cleanMsg).toLowerCase();
-          let matchesLevel = true;
-          if (currentLogLevelFilter === 'error') {
-            matchesLevel = (log.level === 'error' || lineText.includes('429') || lineText.includes('1101') || lineText.includes('502'));
-          } else if (currentLogLevelFilter === 'warn') {
-            matchesLevel = (log.level === 'warn' || log.level === 'error');
-          }
-          if (!(matchesLevel && (!query || lineText.includes(query)))) {
-            line.style.display = 'none';
+          // 1. 初始化全量历史日志
+          if (data.type === 'init' && Array.isArray(data.logs)) {
+            term.innerHTML = '';
+            for (const item of data.logs) {
+              appendLogItem(item, term);
+            }
+            return;
           }
 
-          term.appendChild(line);
-
-          // 保持最多 600 条以保护 DOM 性能
-          if (term.childNodes.length > 600) {
-            term.removeChild(term.firstChild);
+          // 2. 实时增量日志
+          if (data.type === 'log' && data.log) {
+            appendLogItem(data.log, term);
+            return;
           }
 
-          const countBadge = document.getElementById('log-count-badge');
-          if (countBadge && (!query && currentLogLevelFilter === 'all')) {
-            countBadge.innerText = term.childNodes.length + ' 条日志';
+          // 3. 兼容直接发送单条日志对象
+          if (data.message !== undefined) {
+            appendLogItem(data, term);
           }
-
-          if (!isPausedLog && line.style.display !== 'none') {
-            term.scrollTop = term.scrollHeight;
-          }
-        } catch (err) {}
+        } catch (err) {
+          console.error('[Web Console Log Parse Error]:', err);
+        }
       };
-    }
 
-    function escapeHtml(str) {
-      return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+      es.onerror = () => {
+        const countBadge = document.getElementById('log-count-badge');
+        if (countBadge && (!term.childNodes.length)) {
+          countBadge.innerText = '连接中断，重连中...';
+        }
+      };
     }
 
     function clearLogs() {
       const term = document.getElementById('terminal');
       if (term) term.innerHTML = '';
+      const countBadge = document.getElementById('log-count-badge');
+      if (countBadge) countBadge.innerText = '0 条日志';
     }
 
     function togglePauseLog() {
