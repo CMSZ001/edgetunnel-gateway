@@ -9,3 +9,5 @@ traffic-history.json
 config.json
 .env
 docker-compose.override.yml
+*.bat
+*.ps1

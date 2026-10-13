@@ -1,4 +1,4 @@
-# local-edgetunnel-lb 本地自适应动态分流网关
+﻿# local-edgetunnel-lb 本地自适应动态分流网关
 
 [![Docker](https://img.shields.io/badge/Docker-Node%2020--Alpine-2496ED?logo=docker&logoColor=white)](https://hub.docker.com/_/node)
 [![License](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
