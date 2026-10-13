@@ -1,4 +1,4 @@
-﻿# local-edgetunnel-lb 本地自适应动态分流网关
+﻿# EdgeTunnel Gateway (edgetunnel-gateway) 本地自适应动态分流网关
 
 [![Docker](https://img.shields.io/badge/Docker-Node%2020--Alpine-2496ED?logo=docker&logoColor=white)](https://hub.docker.com/_/node)
 [![License](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
@@ -44,7 +44,7 @@
 
 ```mermaid
 graph TD
-    Client1["Mihomo 客户端<br/>(原生 H2C / WS, tls: false)"] -->|局域网请求 10.10.10.35| GW["local-edgetunnel-lb 网关<br/>(Docker Macvlan)"]
+    Client1["Mihomo 客户端<br/>(原生 H2C / WS, tls: false)"] -->|局域网请求 10.10.10.35| GW["EdgeTunnel Gateway 网关<br/>(Docker Macvlan)"]
     Client2["v2rayN 客户端<br/>(HTTP/1.1 POST, tls: false)"] -->|局域网请求 10.10.10.35| GW
     Browser["管理员浏览器<br/>(Web UI 控制台)"] -->|访问 :8789| GW
 
@@ -80,7 +80,7 @@ graph TD
 本项目采用**纯原生 ES Modules (ESM) 与纯原生前端资源**架构，零编译打包依赖，改动直接生效：
 
 ```text
-local-edgetunnel-lb/
+edgetunnel-gateway/
 ├── server.mjs                  # 核心入口：服务监听装配 (8787/8788/8789) 与 REST API 路由
 ├── lib/                        # 原生后端业务模块
 │   ├── config.mjs              # 配置加载、持久化、历史备份与回滚
