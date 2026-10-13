@@ -1,0 +1,38 @@
+version: '3.8'
+
+services:
+  local-gateway:
+    image: node:20-alpine
+    container_name: local-edgetunnel-lb
+    restart: unless-stopped
+    volumes:
+      # 挂载项目目录（包含 server.mjs、public 静态文件和动态生成的 config.json）
+      - ./:/app
+    working_dir: /app
+    command: ["node", "server.mjs"]
+    networks:
+      mvlan:
+        ipv4_address: 10.10.10.35
+    dns:
+      - 223.5.5.5       # 阿里公共 DNS
+      - 119.29.29.29     # 腾讯公共 DNS
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    environment:
+      - TZ=Asia/Shanghai
+      - PORT=8787
+      - H2C_PORT=8788
+      - WEB_PORT=8789
+      - PREFERRED_SERVER=cf.example.com
+      - PAGES_BACKENDS=p1.example.com,p2.example.com
+      - WORKER_BACKENDS=w1.example.com,w2.example.com
+      - TG_BOT_TOKEN=
+      - TG_CHAT_ID=
+      - TG_PROXY=
+
+networks:
+  mvlan:
+    external: true
