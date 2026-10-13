@@ -18,7 +18,7 @@ import {
 
 import { authSessions, hashPassword, checkAuth, createSession } from './lib/auth.mjs';
 import { sendTelegramRequest, verifyTelegramConnectivity } from './lib/telegram.mjs';
-import { backendHealth, backendStats, resetAllCircuit, backendEwma } from './lib/health.mjs';
+import { backendHealth, backendStats, resetAllCircuit } from './lib/health.mjs';
 import { recordPreferActivity, getPreferNodesList, pingPreferTarget, normalizePreferTarget, preferNodes } from './lib/prefer.mjs';
 import { trafficHistory, initTrafficBaseline, startTrafficSampler } from './lib/traffic.mjs';
 import { cachedCfAccounts, lastCfAccountsFetch, startQuotaPatrol, getCfSubAccounts, getCfDirectAccounts } from './lib/cf-quota.mjs';
@@ -499,7 +499,7 @@ const webServer = http.createServer(async (req, res) => {
       const total = v.total || 0;
       const success = v.success || 0;
       const rate = total > 0 ? ((success / total) * 100).toFixed(1) : '100.0';
-      statsObj[k] = { ...v, successRate: parseFloat(rate), ewma: backendEwma.get(k) || null };
+      statsObj[k] = { ...v, successRate: parseFloat(rate) };
     }
 
     const data = {
