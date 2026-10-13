@@ -108,6 +108,34 @@
       return res;
     }
 
+    function getSavedCredentials() {
+      try {
+        const raw = localStorage.getItem('edgetunnel_saved_creds');
+        if (!raw) return null;
+        const parsed = JSON.parse(raw);
+        let pwd = '';
+        if (parsed.password) {
+          try { pwd = atob(parsed.password); } catch { pwd = parsed.password; }
+        }
+        return { username: parsed.username || 'admin', password: pwd };
+      } catch {
+        return null;
+      }
+    }
+
+    function saveCredentials(username, password, remember) {
+      if (remember) {
+        try {
+          localStorage.setItem('edgetunnel_saved_creds', JSON.stringify({
+            username,
+            password: btoa(password)
+          }));
+        } catch {}
+      } else {
+        localStorage.removeItem('edgetunnel_saved_creds');
+      }
+    }
+
     function showAuthModal(needSetup) {
       isNeedSetup = needSetup;
       const modal = document.getElementById('auth-modal');
@@ -117,11 +145,22 @@
       const confirmGroup = document.getElementById('auth-confirm-group');
       const submitBtn = document.getElementById('auth-submit-btn');
       const errBox = document.getElementById('auth-error');
-      
-      if (errBox) errBox.style.display = 'none';
+      const userEl = document.getElementById('auth-user');
       const pwdEl = document.getElementById('auth-pwd');
       const pwdConfirmEl = document.getElementById('auth-pwd-confirm');
-      if (pwdEl) pwdEl.value = '';
+      const rememberCheckbox = document.getElementById('auth-remember');
+      
+      if (errBox) errBox.style.display = 'none';
+
+      const savedCreds = getSavedCredentials();
+      if (savedCreds) {
+        if (userEl && savedCreds.username) userEl.value = savedCreds.username;
+        if (pwdEl && savedCreds.password) pwdEl.value = savedCreds.password;
+        if (rememberCheckbox) rememberCheckbox.checked = true;
+      } else {
+        if (pwdEl) pwdEl.value = '';
+        if (rememberCheckbox) rememberCheckbox.checked = true;
+      }
       if (pwdConfirmEl) pwdConfirmEl.value = '';
 
       if (needSetup) {
@@ -138,7 +177,12 @@
         if (submitBtn) submitBtn.innerText = '登 录';
       }
       if (modal) modal.style.display = 'flex';
-      setTimeout(() => { if (pwdEl) pwdEl.focus(); }, 100);
+      setTimeout(() => {
+        if (pwdEl) {
+          pwdEl.focus();
+          if (pwdEl.value) pwdEl.select();
+        }
+      }, 100);
     }
 
     function hideAuthModal(username) {
@@ -157,12 +201,14 @@
       const userEl = document.getElementById('auth-user');
       const pwdEl = document.getElementById('auth-pwd');
       const pwdConfirmEl = document.getElementById('auth-pwd-confirm');
+      const rememberCheckbox = document.getElementById('auth-remember');
       const errBox = document.getElementById('auth-error');
       if (errBox) errBox.style.display = 'none';
 
       const username = userEl ? userEl.value.trim() : 'admin';
       const pwd = pwdEl ? pwdEl.value : '';
       const pwdConfirm = pwdConfirmEl ? pwdConfirmEl.value : '';
+      const shouldRemember = rememberCheckbox ? rememberCheckbox.checked : true;
 
       if (!username) {
         if (errBox) { errBox.innerText = '请输入管理员账号'; errBox.style.display = 'block'; }
@@ -187,6 +233,7 @@
           const data = await res.json();
           if (data.ok) {
             localStorage.setItem('edgetunnel_token', data.token);
+            saveCredentials(username, pwd, shouldRemember);
             updateAuthBtnState();
             hideAuthModal(data.username);
             showToast('🎉 管理员账号与密码初始化成功！');
@@ -207,6 +254,7 @@
           const data = await res.json();
           if (data.ok) {
             localStorage.setItem('edgetunnel_token', data.token);
+            saveCredentials(username, pwd, shouldRemember);
             hideAuthModal(data.username);
             showToast('✅ 登录成功');
             startApp();
