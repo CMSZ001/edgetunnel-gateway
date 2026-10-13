@@ -67,8 +67,8 @@ graph TD
         HealthCheck -->|正常| LB["后端池轮询出站"]
     end
 
-    LB -->|直连优选IP + 真实SNI/Host + TLS| CF_Pages["Cloudflare Pages 后端池<br/>(pages-*.example.com)"]
-    LB -->|直连优选IP + 真实SNI/Host + TLS (H2)| CF_Worker["Cloudflare Worker 后端池<br/>(worker-*.example.com)"]
+    LB -->|"直连优选IP + 真实SNI/Host + TLS"| CF_Pages["Cloudflare Pages 后端池<br/>(pages-*.example.com)"]
+    LB -->|"直连优选IP + 真实SNI/Host + TLS (H2)"| CF_Worker["Cloudflare Worker 后端池<br/>(worker-*.example.com)"]
     WebUI -->|每 5 分钟后台静默轮询| CF_API["Cloudflare 官方 GraphQL API<br/>(多子账户配额拉取)"]
     HealthCheck -.->|触发严重阻断| TG["Telegram 告警推送<br/>(支持 SOCKS5 代理)"]
 ```
