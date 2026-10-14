@@ -32,5 +32,10 @@
     "chatId": "",
     "proxy": "socks5://10.10.10.1:7890",
     "apiHost": "api.telegram.org"
+  },
+  "memoryGuard": {
+    "enabled": true,
+    "thresholdMB": 150,
+    "intervalMinutes": 5
   }
 }

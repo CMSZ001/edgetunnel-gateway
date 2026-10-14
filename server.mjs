@@ -25,6 +25,12 @@ import { cachedCfAccounts, lastCfAccountsFetch, startQuotaPatrol, getCfSubAccoun
 import { isBenignError } from './lib/utils.mjs';
 import { createWsServer } from './lib/proxy-ws.mjs';
 import { createXhttpGateway } from './lib/proxy-xhttp.mjs';
+import {
+  getMemoryStats,
+  performGarbageCollection,
+  startMemoryGuard,
+  registerLogPruner
+} from './lib/memory.mjs';
 
 // ==========================================
 // 1. 全局指标与日志收集系统
@@ -73,10 +79,20 @@ console.warn = (...args) => {
   appendLog('warn', args.map(a => (typeof a === 'object' ? JSON.stringify(a) : String(a))).join(' '));
 };
 
+registerLogPruner(() => {
+  let pruned = 0;
+  if (logBuffer.length > 100) {
+    pruned = logBuffer.length - 100;
+    logBuffer.splice(0, pruned);
+  }
+  return pruned;
+});
+
 // 初始化配置与历史采样基线
 loadConfigFromFile();
 initTrafficBaseline();
 startTrafficSampler(metrics);
+startMemoryGuard();
 
 // ==========================================
 // 2. 静态页面与通用静态资源托管
@@ -463,7 +479,7 @@ const webServer = http.createServer(async (req, res) => {
   }
 
   // ================= 鉴权拦截器 =================
-  const isPublicApi = ['/api/status', '/api/auth/status', '/api/auth/login', '/api/auth/setup', '/api/prefer/ping', '/api/ping-all'].includes(pathname) ||
+  const isPublicApi = ['/api/status', '/api/auth/status', '/api/auth/login', '/api/auth/setup', '/api/prefer/ping', '/api/ping-all', '/api/memory/status'].includes(pathname) ||
                       (pathname.startsWith('/api/cf-panel/') && pathname !== '/api/cf-panel/target');
 
   if (pathname.startsWith('/api/') && !isPublicApi && !checkAuth(req)) {
@@ -502,9 +518,11 @@ const webServer = http.createServer(async (req, res) => {
       statsObj[k] = { ...v, successRate: parseFloat(rate) };
     }
 
+    const memStats = getMemoryStats();
     const data = {
       uptime: Math.floor((Date.now() - metrics.startTime) / 1000),
-      memoryMB: (process.memoryUsage().rss / 1024 / 1024).toFixed(1),
+      memoryMB: memStats.rssMB,
+      memoryDetail: memStats,
       metrics,
       health: healthObj,
       preferNodes: getPreferNodesList(),
@@ -518,7 +536,8 @@ const webServer = http.createServer(async (req, res) => {
         backendAccountMap: currentConfig.backendAccountMap || {},
         quotaDisplayMode: currentConfig.quotaDisplayMode || 'protocol',
         disabledBackends: currentConfig.disabledBackends || [],
-        cfQuotaAvoidThreshold: currentConfig.cfQuotaAvoidThreshold !== undefined ? currentConfig.cfQuotaAvoidThreshold : 95
+        cfQuotaAvoidThreshold: currentConfig.cfQuotaAvoidThreshold !== undefined ? currentConfig.cfQuotaAvoidThreshold : 95,
+        memoryGuard: currentConfig.memoryGuard || { enabled: true, thresholdMB: 150, intervalMinutes: 5 }
       },
       cfAccountsBrief: accountsBrief,
       cfQuotaLastUpdated: lastCfAccountsFetch ? new Date(lastCfAccountsFetch).toLocaleTimeString('zh-CN', { hour12: false }) : null,
@@ -698,6 +717,13 @@ const webServer = http.createServer(async (req, res) => {
         if (update.quotaDisplayMode !== undefined) {
           currentConfig.quotaDisplayMode = update.quotaDisplayMode === 'total' ? 'total' : 'protocol';
         }
+        if (update.memoryGuard) {
+          currentConfig.memoryGuard = {
+            ...currentConfig.memoryGuard,
+            ...update.memoryGuard
+          };
+          startMemoryGuard();
+        }
         if (update.telegram) {
           if (update.telegram.chatId) update.telegram.chatId = cleanTelegramChatId(update.telegram.chatId);
           currentConfig.telegram = { ...currentConfig.telegram, ...update.telegram };
@@ -745,7 +771,21 @@ const webServer = http.createServer(async (req, res) => {
     return;
   }
 
-  // 6. 重置熔断状态 API
+  // 6. 内存状态与深度垃圾回收 API
+  if (pathname === '/api/memory/status' && req.method === 'GET') {
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ ok: true, data: getMemoryStats(), config: currentConfig.memoryGuard }));
+    return;
+  }
+
+  if (pathname === '/api/memory/gc' && req.method === 'POST') {
+    const result = performGarbageCollection('控制台手动一键回收');
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify(result));
+    return;
+  }
+
+  // 7. 重置熔断状态 API
   if (pathname === '/api/circuit/reset' && req.method === 'POST') {
     resetAllCircuit();
     res.writeHead(200, { 'Content-Type': 'application/json' });
@@ -823,6 +863,10 @@ wsServer.listen(currentConfig.httpPort, '0.0.0.0', () => {
       }, 1500);
       const tgModeStr = currentConfig.telegram.proxy ? `已启用 (SOCKS5/代理: ${currentConfig.telegram.proxy})` : '已启用 (直连模式)';
       console.log(`   📢 Telegram 告警通知:   ${currentConfig.telegram.botToken ? tgModeStr : '未配置 (已跳过)'}`);
+      const mgModeStr = (currentConfig.memoryGuard?.enabled !== false)
+        ? `已启用 (阈值: ${currentConfig.memoryGuard?.thresholdMB || 150}MB, 巡检: 每 ${currentConfig.memoryGuard?.intervalMinutes || 5} 分钟, 原生GC: ${typeof global.gc === 'function' ? '已就绪' : '未开启--expose-gc'})`
+        : '未启用';
+      console.log(`   🧠 内存守护与自动回收: ${mgModeStr}`);
       console.log('='.repeat(60) + '\n');
 
       verifyTelegramConnectivity();

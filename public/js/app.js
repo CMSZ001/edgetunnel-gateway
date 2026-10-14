@@ -387,7 +387,32 @@
         if (statXhttp) statXhttp.innerText = data.metrics.xhttpRequests;
         if (statCircuit) statCircuit.innerText = data.metrics.circuitTrips;
         if (statUptime) statUptime.innerText = Math.floor(data.uptime / 60) + ' 分钟';
-        if (statMemory) statMemory.innerText = '内存占用: ' + data.memoryMB + ' MB';
+        
+        const statMemoryText = document.getElementById('stat-memory-text');
+        const statMemoryPill = document.getElementById('stat-memory-pill');
+        const memMB = parseFloat(data.memoryMB) || 0;
+
+        if (statMemoryText) {
+          statMemoryText.innerText = '内存占用: ' + memMB.toFixed(1) + ' MB';
+        } else if (statMemory) {
+          statMemory.innerText = '内存占用: ' + memMB.toFixed(1) + ' MB';
+        }
+
+        if (statMemoryPill) {
+          if (memMB < 100) {
+            statMemoryPill.innerText = '极佳';
+            statMemoryPill.style.background = 'rgba(16, 185, 129, 0.15)';
+            statMemoryPill.style.color = '#34d399';
+          } else if (memMB < 200) {
+            statMemoryPill.innerText = '正常';
+            statMemoryPill.style.background = 'rgba(59, 130, 246, 0.15)';
+            statMemoryPill.style.color = '#60a5fa';
+          } else {
+            statMemoryPill.innerText = '偏高';
+            statMemoryPill.style.background = 'rgba(239, 68, 68, 0.15)';
+            statMemoryPill.style.color = '#f87171';
+          }
+        }
 
         // 优先更新 CF 额度账号缓存，保障后端卡片直接读取最新联动数据
         if (data.cfAccountsBrief && data.cfAccountsBrief.length > 0) {
@@ -946,6 +971,25 @@
         if (avoidEl) avoidEl.value = avoidThreshold;
         if (avoidBadge) avoidBadge.innerText = avoidThreshold + '%';
 
+        const mg = data.memoryGuard || {};
+        const elMgEnabled = document.getElementById('cfg-memory-enabled');
+        const elMgThresh = document.getElementById('cfg-memory-threshold');
+        const elMgInterval = document.getElementById('cfg-memory-interval');
+        const elMgGcBadge = document.getElementById('cfg-memory-gc-badge');
+
+        if (elMgEnabled) elMgEnabled.checked = mg.enabled !== false;
+        if (elMgThresh) elMgThresh.value = mg.thresholdMB || 150;
+        if (elMgInterval) elMgInterval.value = mg.intervalMinutes || 5;
+
+        authFetch('/api/memory/status').then(r => r.json()).then(mRes => {
+          if (mRes.ok && elMgGcBadge) {
+            const isGc = mRes.data?.isGcExposed;
+            elMgGcBadge.innerText = isGc ? '✅ V8 原生 GC 已就绪' : 'ℹ️ 标准回收模式 (启动参数可加 --expose-gc)';
+            elMgGcBadge.style.color = isGc ? '#34d399' : '#fbbf24';
+            elMgGcBadge.style.background = isGc ? 'rgba(16, 185, 129, 0.15)' : 'rgba(251, 191, 36, 0.15)';
+          }
+        }).catch(() => {});
+
         currentBackendAccountMap = data.backendAccountMap || {};
         if (data.cfDirect?.accounts && data.cfDirect.accounts.length > 0) {
           availableCfAccounts = data.cfDirect.accounts;
@@ -1078,6 +1122,11 @@ function operator(proxies, targetPlatform) {
         cfQuotaAvoidThreshold: parseInt(document.getElementById('cfg-cfQuotaAvoidThreshold')?.value || '95', 10),
         quotaDisplayMode: document.querySelector('input[name="cfg-quotaDisplayMode"]:checked')?.value || 'protocol',
         backendAccountMap: finalMapping,
+        memoryGuard: {
+          enabled: document.getElementById('cfg-memory-enabled') ? document.getElementById('cfg-memory-enabled').checked : true,
+          thresholdMB: parseInt(document.getElementById('cfg-memory-threshold')?.value || '150', 10),
+          intervalMinutes: parseInt(document.getElementById('cfg-memory-interval')?.value || '5', 10)
+        },
         telegram: {
           botToken: document.getElementById('cfg-tgToken').value.trim(),
           chatId: document.getElementById('cfg-tgChatId').value.trim(),
@@ -1146,6 +1195,34 @@ function operator(proxies, targetPlatform) {
       showToast('网关正在重启中，3 秒后自动刷新页面...');
       setTimeout(() => location.reload(), 3000);
     }
+
+    async function triggerManualGcAction() {
+      const btn = document.getElementById('btn-manual-gc');
+      const originalText = btn ? btn.innerText : '⚡ 立即回收';
+      if (btn) {
+        btn.disabled = true;
+        btn.innerText = '⏳ 回收中...';
+      }
+      try {
+        const res = await authFetch('/api/memory/gc', { method: 'POST' });
+        const json = await res.json();
+        if (json.ok) {
+          const freed = json.freedRssMB > 0 ? `${json.freedRssMB} MB` : (json.freedHeapMB > 0 ? `${json.freedHeapMB} MB (堆释放)` : '0 MB (已处极佳低位)');
+          showToast(`✅ 深度内存回收完成！已释放 ${freed}`);
+          loadStatus();
+        } else {
+          showToast('⚠️ 内存回收提示: ' + (json.error || '未能释放更多内存'), true);
+        }
+      } catch (err) {
+        showToast('❌ 执行内存回收失败: ' + err.message, true);
+      } finally {
+        if (btn) {
+          btn.disabled = false;
+          btn.innerText = originalText;
+        }
+      }
+    }
+    window.triggerManualGcAction = triggerManualGcAction;
 
     
 

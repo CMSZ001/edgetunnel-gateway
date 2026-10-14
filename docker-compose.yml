@@ -9,7 +9,7 @@ services:
       # 挂载项目目录（包含 server.mjs、public 静态文件和动态生成的 config.json）
       - ./:/app
     working_dir: /app
-    command: ["node", "server.mjs"]
+    command: ["node", "--expose-gc", "server.mjs"]
     networks:
       mvlan:
         ipv4_address: 10.10.10.35
