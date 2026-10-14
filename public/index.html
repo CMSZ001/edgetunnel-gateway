@@ -13,7 +13,7 @@
   <link rel="icon" type="image/svg+xml" href="/icon.svg">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/css/style.css">
+  <link rel="stylesheet" href="/css/style.css?v=20261014_1">
 </head>
 <body>
   <header>
@@ -209,9 +209,9 @@
               </label>
               <div class="form-desc">当网关物理内存占用达到阈值时，自动执行深度清理（关闭闲置 H2 连接、清理历史优选缓存与过期 Session，并触发 V8 原生垃圾回收），彻底告别长时间运行内存膨胀。</div>
             </div>
-            <label class="switch-toggle" style="margin-left: auto;">
+            <label class="form-switch" style="margin-left: auto;" title="开启或关闭后台自动内存回收巡检">
               <input type="checkbox" id="cfg-memory-enabled" checked>
-              <span class="switch-slider"></span>
+              <span class="slider"></span>
             </label>
           </div>
           <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-top: 0.75rem;">

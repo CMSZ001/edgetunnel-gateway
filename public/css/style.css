@@ -218,6 +218,71 @@
       box-shadow: 0 0 8px rgba(5, 150, 105, 0.3);
     }
 
+    /* ================= 表单独立 Switch 开关 (兼容原生 Checkbox) ================= */
+    .form-switch {
+      position: relative;
+      display: inline-block;
+      width: 44px;
+      height: 24px;
+      flex-shrink: 0;
+      cursor: pointer;
+      user-select: none;
+    }
+    .form-switch input {
+      opacity: 0;
+      width: 0;
+      height: 0;
+      position: absolute;
+      margin: 0;
+      pointer-events: none;
+    }
+    .form-switch .slider {
+      position: absolute;
+      cursor: pointer;
+      inset: 0;
+      background-color: rgba(255, 255, 255, 0.16);
+      border: 1px solid rgba(255, 255, 255, 0.18);
+      transition: background-color 0.25s cubic-bezier(0.4, 0, 0.2, 1), border-color 0.25s, box-shadow 0.25s;
+      border-radius: 9999px;
+    }
+    .form-switch .slider:before {
+      position: absolute;
+      content: "";
+      height: 18px;
+      width: 18px;
+      left: 2px;
+      bottom: 2px;
+      background-color: #ffffff;
+      transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+      border-radius: 50%;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+    }
+    .form-switch:hover .slider {
+      border-color: rgba(255, 255, 255, 0.35);
+    }
+    .form-switch input:checked + .slider {
+      background-color: #10b981;
+      border-color: #10b981;
+      box-shadow: 0 0 10px rgba(16, 185, 129, 0.35);
+    }
+    .form-switch input:checked + .slider:before {
+      transform: translateX(20px);
+    }
+    body.light-theme .form-switch .slider {
+      background-color: #cbd5e1;
+      border-color: #94a3b8;
+    }
+    body.light-theme .form-switch input:checked + .slider {
+      background-color: #059669;
+      border-color: #059669;
+      box-shadow: 0 0 8px rgba(5, 150, 105, 0.3);
+    }
+
+    input[type="radio"], input[type="checkbox"]:not(.form-switch input) {
+      accent-color: #10b981;
+      cursor: pointer;
+    }
+
     .form-group { margin-bottom: 1.2rem; }
     .form-label { display: block; font-size: 0.875rem; font-weight: 500; margin-bottom: 0.4rem; color: #d1d5db; }
     .form-desc { font-size: 0.75rem; color: var(--text-muted); margin-bottom: 0.4rem; }
