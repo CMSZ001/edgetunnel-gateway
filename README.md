@@ -4,8 +4,11 @@
 [![License](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/Platform-Synology%20NAS%20%7C%20Linux-green.svg)]()
 [![Architecture](https://img.shields.io/badge/Architecture-Modular%20ESM-orange.svg)]()
+[![Wiki](https://img.shields.io/badge/Wiki-Documentation-blueviolet.svg?logo=gitbook&logoColor=white)](https://github.com/aihddelyy/edgetunnel-gateway/wiki)
 
 专为 **Cloudflare Pages / Workers ([EdgeTunnel](https://github.com/cmliu/edgetunnel))** 打造的轻量级高性能局域网自适应负载均衡与智能分流网关。通过 Docker 部署在 NAS / 软路由 / 物理服务器上，赋予独立局域网 IP（Macvlan 模式），为内网全设备（软路由 Mihomo、PC v2rayN、手机等）提供高可用、多域名轮询、握手期透明故障转移、动态优选 IP 透传与多账户额度监控管理服务。
+
+> 📖 **官方完整知识库与使用手册已上线**：关于详细网络规划、首包嗅探底层原理、多客户端订阅转换与疑难排障，欢迎查阅 **[GitHub 官方 Wiki 文档中心](https://github.com/aihddelyy/edgetunnel-gateway/wiki)**。
 
 ---
 
