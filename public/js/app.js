@@ -373,6 +373,25 @@
       }
     }
 
+    function formatDuration(totalSeconds) {
+      const sec = Math.max(0, Math.floor(totalSeconds || 0));
+      const totalMinutes = Math.floor(sec / 60);
+
+      if (totalMinutes < 60) {
+        return `${totalMinutes} 分钟`;
+      }
+
+      const days = Math.floor(totalMinutes / (24 * 60));
+      const hours = Math.floor((totalMinutes % (24 * 60)) / 60);
+      const minutes = totalMinutes % 60;
+
+      if (days >= 1) {
+        return `${days} 天 ${hours} 小时 ${minutes} 分钟`;
+      } else {
+        return `${hours} 小时 ${minutes} 分钟`;
+      }
+    }
+
     async function loadStatus() {
       try {
         const res = await authFetch('/api/status');
@@ -386,7 +405,7 @@
         if (statWs) statWs.innerText = data.metrics.wsRequests;
         if (statXhttp) statXhttp.innerText = data.metrics.xhttpRequests;
         if (statCircuit) statCircuit.innerText = data.metrics.circuitTrips;
-        if (statUptime) statUptime.innerText = Math.floor(data.uptime / 60) + ' 分钟';
+        if (statUptime) statUptime.innerText = formatDuration(data.uptime);
         
         const statMemoryText = document.getElementById('stat-memory-text');
         const statMemoryPill = document.getElementById('stat-memory-pill');
@@ -484,10 +503,8 @@
 
         const diffSec = Math.max(0, Math.floor((Date.now() - n.lastSeen) / 1000));
         let activeTimeStr = '刚刚';
-        if (diffSec >= 3600) {
-          activeTimeStr = `${Math.floor(diffSec / 3600)} 小时前`;
-        } else if (diffSec >= 60) {
-          activeTimeStr = `${Math.floor(diffSec / 60)} 分钟前`;
+        if (diffSec >= 60) {
+          activeTimeStr = formatDuration(diffSec) + '前';
         } else if (diffSec > 5) {
           activeTimeStr = `${diffSec} 秒前`;
         }
